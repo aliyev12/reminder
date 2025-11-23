@@ -1,0 +1,4 @@
+# .dockerignore
+.git
+.env
+reminders.db
