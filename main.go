@@ -198,7 +198,6 @@ func checkReminders(now time.Time, parser cron.Parser) {
 }
 
 func sendEmail(toAddress, subject, content string) {
-	// --- NEW: Fetch SendGrid secrets from environment ---
 	apiKey := os.Getenv("SENDGRID_API_KEY")
 	fromEmail := os.Getenv("SENDGRID_FROM_EMAIL")
 
@@ -207,9 +206,21 @@ func sendEmail(toAddress, subject, content string) {
 		return
 	}
 
+	// --- FIX START: Ensure content is never empty ---
+	plainTextContent := content
+	if plainTextContent == "" {
+		plainTextContent = "You have a new reminder! (No description provided)"
+	}
+
+	// Create simple HTML version (just bolding the text for now)
+	htmlContent := fmt.Sprintf("<p>%s</p>", plainTextContent)
+	// --- FIX END ---
+
 	from := mail.NewEmail("Reminder App", fromEmail)
 	to := mail.NewEmail("User", toAddress)
-	message := mail.NewSingleEmail(from, subject, to, content, content)
+
+	// NewSingleEmail(from, subject, to, plainText, html)
+	message := mail.NewSingleEmail(from, subject, to, plainTextContent, htmlContent)
 
 	client := sendgrid.NewSendClient(apiKey)
 	response, err := client.Send(message)
@@ -217,6 +228,7 @@ func sendEmail(toAddress, subject, content string) {
 	if err != nil {
 		log.Println("Failed to send email:", err)
 	} else {
+		// SendGrid returns 200, 201, or 202 for success
 		if response.StatusCode >= 200 && response.StatusCode < 300 {
 			fmt.Printf("Email sent successfully to %s\n", toAddress)
 		} else {
